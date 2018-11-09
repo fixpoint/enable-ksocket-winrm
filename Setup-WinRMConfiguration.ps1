@@ -89,6 +89,14 @@ function main($account) {
         Write-Error "ERROR: 指定されたアカウント名が見つからないか、SIDに変換できませんでした"
     }
 
+    # Set ExecutionPolicy
+    try {
+        Set-ExecutionPolicy RemoteSigned
+    }
+    catch {
+        Write-Error "ERROR: ExecutionPolicyをRemoteSignedに変更できませんでした"
+    }
+
     # Enable WinRM
     try {
         winrm qc -quiet
