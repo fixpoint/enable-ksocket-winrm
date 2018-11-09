@@ -8,6 +8,7 @@ ksocket からの WinRM アクセスを有効にするためのスクリプト�
 Setup-WinRMConfiguration.ps1 をダウンロードし、WinRM によるアクセスを許可したい Windows 上に配置してください。  
 スクリプトを `$env:USERPROFILE\Downloads` にダウンロードしたと仮定し、以下に示すコマンドを PowerShell で実行してください。
 
+    (PowerShell 管理者権限)
     # Setup-WinRMConfiguration.ps1 を配置したフォルダに移動する
     > cd ~\Downloads
 
@@ -18,8 +19,7 @@ Setup-WinRMConfiguration.ps1 をダウンロードし、WinRM によるアクセ
     # ローカルアカウント/ドメインアカウントに関わらず、コンピュータ名を忘れないようにしてください
     > .\Setup-WinRMConfiguration.ps1 $env:COMPUTERNAME\YourAccountName
 
-前提として、スクリプトは管理者権限で実行する必要があります。  
-また、ネットワークプロファイルは Private または DomainAutheticated である必要があります。  
+前提として、ネットワークプロファイルは Private または DomainAutheticated である必要があります。  
 ネットワークプロファイルが Public である場合、スクリプト実行以前に以下のコマンドを管理者権限の PowerShell で実行してください。
 
     Set-NetConnectionProfile -NetworkCategory Private
