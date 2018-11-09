@@ -1,4 +1,9 @@
-# 使い方
+# enable-ksocket-winrm
+
+ksocket からの WinRM アクセスを有効にするためのスクリプトです。  
+本リポジトリのスクリプトを Windows 上で実行することで、構成情報の取得ができるようになります。
+
+## 使い方
 
 Setup-WinRMConfiguration.ps1 をダウンロードし、WinRM によるアクセスを許可したい Windows 上に配置してください。  
 スクリプトを `$env:USERPROFILE\Downloads` にダウンロードしたと仮定し、以下に示すコマンドを PowerShell で実行してください。
@@ -18,6 +23,4 @@ Setup-WinRMConfiguration.ps1 をダウンロードし、WinRM によるアクセ
 ネットワークプロファイルが Public である場合、スクリプト実行以前に以下のコマンドを管理者権限の PowerShell で実行してください。
 
     Set-NetConnectionProfile -NetworkCategory Private
-
-以上の作業を行うことにより、ksocket からの WinRM が有効になり、構成情報の取得ができるようになります。
 
