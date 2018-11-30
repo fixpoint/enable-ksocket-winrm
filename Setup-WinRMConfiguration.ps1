@@ -2,9 +2,9 @@ Param (
     [parameter(Mandatory = $true)][string] $account
 )
 
-$rootSddlPath = "WSMan:\localhost\Service\RootSDDL"          # RootSDDLãƒ‘ã‚¹
-$namespaces   = @("root/cimv2", "root/standardcimv2" )       # WMIãƒªã‚½ãƒ¼ã‚¹ã‚’æŒ‡å®š
-$permissions  = @("Enable", "MethodExecute", "RemoteAccess") # è¨±å¯ã™ã‚‹æ¨©é™ã‚’æŒ‡å®š
+$rootSddlPath = "WSMan:\localhost\Service\RootSDDL"          # RootSDDLƒpƒX
+$namespaces   = @("root/cimv2", "root/standardcimv2" )       # WMIƒŠƒ\[ƒX‚ğw’è
+$permissions  = @("Enable", "MethodExecute", "RemoteAccess") # ‹–‰Â‚·‚éŒ ŒÀ‚ğw’è
 
 function Get-AccessMaskFromPermission($permissions) {
     $WBEM_ENABLE = 1
@@ -86,7 +86,7 @@ function main($account) {
         $sid = (New-Object System.Security.Principal.NTAccount($account)).Translate([System.Security.Principal.SecurityIdentifier]).Value
     }
     catch {
-        Write-Error "ERROR: æŒ‡å®šã•ã‚ŒãŸã‚¢ã‚«ã‚¦ãƒ³ãƒˆåãŒè¦‹ã¤ã‹ã‚‰ãªã„ã‹ã€SIDã«å¤‰æ›ã§ãã¾ã›ã‚“ã§ã—ãŸ"
+        Write-Error "ERROR: w’è‚³‚ê‚½ƒAƒJƒEƒ“ƒg–¼‚ªŒ©‚Â‚©‚ç‚È‚¢‚©ASID‚É•ÏŠ·‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½"
     }
 
     # Set ExecutionPolicy
@@ -94,7 +94,7 @@ function main($account) {
         Set-ExecutionPolicy RemoteSigned
     }
     catch {
-        Write-Error "ERROR: ExecutionPolicyã‚’RemoteSignedã«å¤‰æ›´ã§ãã¾ã›ã‚“ã§ã—ãŸ"
+        Write-Error "ERROR: ExecutionPolicy‚ğRemoteSigned‚É•ÏX‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½"
     }
 
     # Enable WinRM
@@ -109,9 +109,9 @@ function main($account) {
         if ($LASTEXITCODE -ne 0) { throw }
     }
     catch {
-        Write-Error "ERROR: WinRMã®æœ‰åŠ¹åŒ–ã§ã‚¨ãƒ©ãƒ¼ç™ºç”Ÿã—ã¾ã—ãŸ[ $($_) ]"
+        Write-Error "ERROR: WinRM‚Ì—LŒø‰»‚ÅƒGƒ‰[”­¶‚µ‚Ü‚µ‚½[ $($_) ]"
     }
-    Write-Output "WinRMã‚µãƒ¼ãƒ“ã‚¹ã‚’æœ‰åŠ¹åŒ–ã—ã¾ã—ãŸ"
+    Write-Output "WinRMƒT[ƒrƒX‚ğ—LŒø‰»‚µ‚Ü‚µ‚½"
 
     # Set RootSDDL Security
     try {
@@ -121,7 +121,7 @@ function main($account) {
 
         # Add the new SID
         $accessType = "Allow"
-        $accessMask = -1610612736 # GXGRæ¨©é™(èª­ã¿å–ã‚Š,å®Ÿè¡Œ)
+        $accessMask = -1610612736 # GXGRŒ ŒÀ(“Ç‚İæ‚è,Às)
         $inheritanceFlags = "none"
         $propagationFlags = "none"
         $SecurityDescriptor.DiscretionaryAcl.AddAccess($accessType, $sid, $accessMask, $inheritanceFlags, $propagationFlags)
@@ -132,9 +132,9 @@ function main($account) {
         Set-Item -Path $rootSddlPath -Value $newSDDL -Confirm:$false -Verbose:$false -Force
     }
     catch {
-        Write-Error "ERROR: WinRM RootSDDLã‚»ã‚­ãƒ¥ãƒªãƒ†ã‚£è¨­å®šã®æ›´æ–°å‡¦ç†ä¸­ã«ã‚¨ãƒ©ãƒ¼ãŒç™ºç”Ÿã—ã¾ã—ãŸ[ $($_) ]"
+        Write-Error "ERROR: WinRM RootSDDLƒZƒLƒ…ƒŠƒeƒBİ’è‚ÌXVˆ—’†‚ÉƒGƒ‰[‚ª”­¶‚µ‚Ü‚µ‚½[ $($_) ]"
     }
-    Write-Output "WinRM RootSDDLã‚»ã‚­ãƒ¥ãƒªãƒ†ã‚£è¨­å®šã‚’æ›´æ–°ã—ã¾ã—ãŸ"
+    Write-Output "WinRM RootSDDLƒZƒLƒ…ƒŠƒeƒBİ’è‚ğXV‚µ‚Ü‚µ‚½"
 
     # Set WMI Security
     try {
@@ -148,9 +148,9 @@ function main($account) {
         }
     }
     catch {
-        Write-Error "ERROR: WMIã‚»ã‚­ãƒ¥ãƒªãƒ†ã‚£è¨­å®šã®æ›´æ–°å‡¦ç†ä¸­ã«ã‚¨ãƒ©ãƒ¼ãŒç™ºç”Ÿã—ã¾ã—ãŸ[ $($_) ]"
+        Write-Error "ERROR: WMIƒZƒLƒ…ƒŠƒeƒBİ’è‚ÌXVˆ—’†‚ÉƒGƒ‰[‚ª”­¶‚µ‚Ü‚µ‚½[ $($_) ]"
     }
-    Write-Output "WMIã‚»ã‚­ãƒ¥ãƒªãƒ†ã‚£è¨­å®šã‚’æ›´æ–°ã—ã¾ã—ãŸ"
+    Write-Output "WMIƒZƒLƒ…ƒŠƒeƒBİ’è‚ğXV‚µ‚Ü‚µ‚½"
 }
 
 main($account)
