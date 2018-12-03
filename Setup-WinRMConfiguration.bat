@@ -4,7 +4,7 @@ setlocal
 pushd "%~dp0"
 
 openfiles > nul
-if errorlevel 1 echo 管理者として実行してください！ & pause & exit 1
+if errorlevel 1 echo 管理者として実行してください。 & pause & exit 1
 
 rem ファイルの存在確認
 if not exist .\Setup-WinRMConfiguration.ps1 (
