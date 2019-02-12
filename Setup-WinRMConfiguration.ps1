@@ -78,6 +78,13 @@ function Set-WmiNamespaceSecurity {
     return $true
 }
 
+function Invoke-QuickConfig {
+    sc.exe start WinRM
+    sc.exe config WinRM start= delayed-auto
+    winrm create winrm/config/listener?Address=*+Transport=HTTP
+    netsh firewall add portopening TCP 5985 "Windows Remote Management"
+}
+
 function main($account) {
     $ErrorActionPreference = "Stop"
 
@@ -99,7 +106,8 @@ function main($account) {
 
     # Enable WinRM
     try {
-        winrm qc -quiet
+        # winrm qc -quiet
+        Invoke-QuickConfig
         if ($LASTEXITCODE -ne 0) { throw }
 
         winrm set winrm/config/service/auth '@{Basic="true"}'
