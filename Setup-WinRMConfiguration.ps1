@@ -6,6 +6,86 @@ $rootSddlPath = "WSMan:\localhost\Service\RootSDDL"          # RootSDDLパス
 $namespaces   = @("root/cimv2", "root/standardcimv2" )       # WMIリソースを指定
 $permissions  = @("Enable", "MethodExecute", "RemoteAccess") # 許可する権限を指定
 
+function Enable-Privilege {
+# https://stackoverflow.com/questions/45013591/set-registry-key-owner-to-system-user
+ param(
+  ## The privilege to adjust. This set is taken from
+  ## http://msdn.microsoft.com/en-us/library/bb530716(VS.85).aspx
+  [ValidateSet(
+   "SeAssignPrimaryTokenPrivilege", "SeAuditPrivilege", "SeBackupPrivilege",
+   "SeChangeNotifyPrivilege", "SeCreateGlobalPrivilege", "SeCreatePagefilePrivilege",
+   "SeCreatePermanentPrivilege", "SeCreateSymbolicLinkPrivilege", "SeCreateTokenPrivilege",
+   "SeDebugPrivilege", "SeEnableDelegationPrivilege", "SeImpersonatePrivilege", "SeIncreaseBasePriorityPrivilege",
+   "SeIncreaseQuotaPrivilege", "SeIncreaseWorkingSetPrivilege", "SeLoadDriverPrivilege",
+   "SeLockMemoryPrivilege", "SeMachineAccountPrivilege", "SeManageVolumePrivilege",
+   "SeProfileSingleProcessPrivilege", "SeRelabelPrivilege", "SeRemoteShutdownPrivilege",
+   "SeRestorePrivilege", "SeSecurityPrivilege", "SeShutdownPrivilege", "SeSyncAgentPrivilege",
+   "SeSystemEnvironmentPrivilege", "SeSystemProfilePrivilege", "SeSystemtimePrivilege",
+   "SeTakeOwnershipPrivilege", "SeTcbPrivilege", "SeTimeZonePrivilege", "SeTrustedCredManAccessPrivilege",
+   "SeUndockPrivilege", "SeUnsolicitedInputPrivilege")]
+  $Privilege,
+  ## The process on which to adjust the privilege. Defaults to the current process.
+  $ProcessId = $pid,
+  ## Switch to disable the privilege, rather than enable it.
+  [Switch] $Disable
+ )
+
+ ## Taken from P/Invoke.NET with minor adjustments.
+ $definition = @'
+ using System;
+ using System.Runtime.InteropServices;
+  
+ public class AdjPriv
+ {
+  [DllImport("advapi32.dll", ExactSpelling = true, SetLastError = true)]
+  internal static extern bool AdjustTokenPrivileges(IntPtr htok, bool disall,
+   ref TokPriv1Luid newst, int len, IntPtr prev, IntPtr relen);
+  
+  [DllImport("advapi32.dll", ExactSpelling = true, SetLastError = true)]
+  internal static extern bool OpenProcessToken(IntPtr h, int acc, ref IntPtr phtok);
+  [DllImport("advapi32.dll", SetLastError = true)]
+  internal static extern bool LookupPrivilegeValue(string host, string name, ref long pluid);
+  [StructLayout(LayoutKind.Sequential, Pack = 1)]
+  internal struct TokPriv1Luid
+  {
+   public int Count;
+   public long Luid;
+   public int Attr;
+  }
+  
+  internal const int SE_PRIVILEGE_ENABLED = 0x00000002;
+  internal const int SE_PRIVILEGE_DISABLED = 0x00000000;
+  internal const int TOKEN_QUERY = 0x00000008;
+  internal const int TOKEN_ADJUST_PRIVILEGES = 0x00000020;
+  public static bool EnablePrivilege(long processHandle, string privilege, bool disable)
+  {
+   bool retVal;
+   TokPriv1Luid tp;
+   IntPtr hproc = new IntPtr(processHandle);
+   IntPtr htok = IntPtr.Zero;
+   retVal = OpenProcessToken(hproc, TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, ref htok);
+   tp.Count = 1;
+   tp.Luid = 0;
+   if(disable)
+   {
+    tp.Attr = SE_PRIVILEGE_DISABLED;
+   }
+   else
+   {
+    tp.Attr = SE_PRIVILEGE_ENABLED;
+   }
+   retVal = LookupPrivilegeValue(null, privilege, ref tp.Luid);
+   retVal = AdjustTokenPrivileges(htok, false, ref tp, 0, IntPtr.Zero, IntPtr.Zero);
+   return retVal;
+  }
+ }
+'@
+
+ $processHandle = (Get-Process -id $ProcessId).Handle
+ $type = Add-Type $definition -PassThru
+ $type[0]::EnablePrivilege($processHandle, $Privilege, $Disable)
+}
+
 function Get-AccessMaskFromPermission($permissions) {
     $WBEM_ENABLE = 1
     $WBEM_METHOD_EXECUTE = 2
@@ -78,6 +158,69 @@ function Set-WmiNamespaceSecurity {
     return $true
 }
 
+function Set-ComponentService{
+    Param (
+        [parameter(Mandatory = $true)][string] $sid
+    )
+    # Add PSDrive
+    $hkcr = Get-PSDrive -PSProvider Registry | Where-Object {$_.ROOT -eq "HKEY_CLASSES_ROOT"}
+    if($hkcr -eq $null){
+        New-PSDrive -PSProvider Registry -Name HKCR -Root HKEY_CLASSES_ROOT
+        $hkcr = Get-PSDrive -PSProvider Registry | Where-Object {$_.ROOT -eq "HKEY_CLASSES_ROOT"}
+    }
+
+    $appId_path = $hkcr.Name + ":AppID\"
+
+    $ti_obj = Get-ChildItem $appId_path | Get-ItemProperty | Where-Object {$_."(default)" -eq "Trusted Installer Service"}
+
+    $ti_path = Join-Path $appId_path $ti_obj.PSChildName
+
+    $reg_key_name = "AppID\"+ $ti_obj.PSChildName
+
+    Enable-Privilege SeTakeOwnershipPrivilege 
+
+    # Change Owner to the local Administrators group
+    $regKey = [Microsoft.Win32.Registry]::ClassesRoot.OpenSubKey($reg_key_name,[Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree,[System.Security.AccessControl.RegistryRights]::TakeOwnership)
+    $regACL = $regKey.GetAccessControl()
+    $regACL.SetOwner([System.Security.Principal.NTAccount]"Administrators")
+    $regKey.SetAccessControl($regACL)
+    # Change Permissions for the local Administrators group
+    $regKey = [Microsoft.Win32.Registry]::ClassesRoot.OpenSubKey($reg_key_name,[Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree,[System.Security.AccessControl.RegistryRights]::ChangePermissions)
+    $regACL = $regKey.GetAccessControl()
+    $regRule = New-Object System.Security.AccessControl.RegistryAccessRule ("Administrators","FullControl","ContainerInherit","None","Allow")
+    $regACL.SetAccessRule($regRule)
+    $regKey.SetAccessControl($regACL)
+
+    $dcom_app = Get-WMIobject Win32_DCOMApplicationSetting -enableallprivileges |Where-Object {$_.AppID -eq $ti_obj.PSChildName} 
+
+    $trustee = ([wmiclass] 'Win32_Trustee').CreateInstance()
+    $trustee.SIDString = $sid
+    $ace = ([wmiclass] 'Win32_ACE').CreateInstance()
+    $ace.AceFlags = 0
+    $ace.AceType = 0
+    $ace.Trustee = $trustee
+    $ace.AccessMask = 31 
+
+    $sdRes = $dcom_app.GetLaunchSecurityDescriptor()
+    $sd = $sdRes.Descriptor
+    [System.Management.ManagementBaseObject[]] $newDACL = $sd.DACL + @($ace)
+    $sd.DACL = $newDACL
+    $dcom_app.SetLaunchSecurityDescriptor($sd)
+
+    $sdRes = $dcom_app.GetAccessSecurityDescriptor()
+    $sd = $sdRes.Descriptor
+    [System.Management.ManagementBaseObject[]] $newDACL = $sd.DACL + @($ace)
+    $sd.DACL = $newDACL
+    $dcom_app.SetAccessSecurityDescriptor($sd)
+
+    $ace.AccessMask = 268435456
+    $sdRes = $dcom_app.GetConfigurationSecurityDescriptor()
+    $sd = $sdRes.Descriptor
+    [System.Management.ManagementBaseObject[]] $newDACL = $sd.DACL + @($ace)
+    $sd.DACL = $newDACL
+    $dcom_app.SetConfigurationSecurityDescriptor($sd)
+}
+
 function Invoke-QuickConfig {
     sc.exe start WinRM
     sc.exe config WinRM start= delayed-auto
@@ -146,6 +289,7 @@ function main($account) {
 
     # Set WMI Security
     try {
+        $result = Set-WmiNamespaceSecurity -sid $sid -namespace 'root' -permissions @("Enable", "RemoteAccess")
         foreach ($namespace in $namespaces) {
             $result = Set-WmiNamespaceSecurity -sid $sid -namespace $namespace -permissions $permissions
             if ($result) {
@@ -159,6 +303,12 @@ function main($account) {
         Write-Error "ERROR: WMIセキュリティ設定の更新処理中にエラーが発生しました[ $($_) ]"
     }
     Write-Output "WMIセキュリティ設定を更新しました"
+
+    try{
+        Set-ComponentService $sid
+    }catch {
+         Write-Error "ERROR: DCOM構成「TrustedInstallerService」のアクセス権設定中にエラーが発生しました[ $($_) ]"
+    }
 }
 
 main($account)
