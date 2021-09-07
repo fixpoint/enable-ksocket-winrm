@@ -126,6 +126,13 @@ function Set-WmiNamespaceSecurity {
 
     try {
         $output = Invoke-WmiMethod -Name GetSecurityDescriptor -Namespace $namespace -Path '__systemsecurity=@'
+    } catch [System.Management.ManagementException] {
+        if ($PSItem.ToString().Contains("予期せぬエラーです") -or $PSItem.Exception.StackTrace.Contains("ThrowWithExtendedInfo(ManagementStatus errorCode)")) {
+            throw "WMIセキュリティデスクリプションの読み取りで予期せぬエラーが発生しました。" +
+                  "無効なユーザー(削除済みユーザー等)設定が存在している可能性があるため、削除してから再度スクリプトを実行してください。"
+        } else {
+            return $false
+        }
     } catch {
         return $false
     }
