@@ -2,9 +2,9 @@ Param (
     [parameter(Mandatory = $true)][string] $account
 )
 
-$rootSddlPath = "WSMan:\localhost\Service\RootSDDL"          # RootSDDLパス
-$namespaces   = @("root/cimv2", "root/standardcimv2" )       # WMIリソースを指定
-$permissions  = @("Enable", "MethodExecute", "RemoteAccess") # 許可する権限を指定
+$rootSddlPath = "WSMan:\localhost\Service\RootSDDL"          # RootSDDL Path
+$namespaces   = @("root/cimv2", "root/standardcimv2" )       # WMI Resource
+$permissions  = @("Enable", "MethodExecute", "RemoteAccess") # Permissions to grant
 
 function Enable-Privilege {
 # https://stackoverflow.com/questions/45013591/set-registry-key-owner-to-system-user
@@ -127,9 +127,9 @@ function Set-WmiNamespaceSecurity {
     try {
         $output = Invoke-WmiMethod -Name GetSecurityDescriptor -Namespace $namespace -Path '__systemsecurity=@'
     } catch [System.Management.ManagementException] {
-        if ($PSItem.ToString().Contains("予期せぬエラーです") -or $PSItem.Exception.StackTrace.Contains("ThrowWithExtendedInfo(ManagementStatus errorCode)")) {
-            throw "WMIセキュリティ識別子の読み取りで予期せぬエラーが発生しました。" +
-                  "無効なユーザー(削除済みユーザー等)設定が存在している可能性があるため、削除してから再度スクリプトを実行してください。"
+        if ($PSItem.ToString().Contains("Unpected errr") -or $PSItem.Exception.StackTrace.Contains("ThrowWithExtendedInfo(ManagementStatus errorCode)")) {
+            throw "An unexpected error occured reading WMI security idenifier." +
+                  "Invalid user settings (e.g., deleted user) may exist, so delete them and run the script again."
         } else {
             return $false
         }
@@ -243,7 +243,7 @@ function main($account) {
         $sid = (New-Object System.Security.Principal.NTAccount($account)).Translate([System.Security.Principal.SecurityIdentifier]).Value
     }
     catch {
-        Write-Error "ERROR: 指定されたアカウント名が見つからないか、SIDに変換できませんでした"
+        Write-Error "ERROR: The account name could not be found or converted to a SID"
     }
 
     # Set ExecutionPolicy
@@ -251,7 +251,7 @@ function main($account) {
         Set-ExecutionPolicy RemoteSigned
     }
     catch {
-        Write-Error "ERROR: ExecutionPolicyをRemoteSignedに変更できませんでした"
+        Write-Error "ERROR: Could not change ExecutionPolicy to RemoteSigned"
     }
 
     # Enable WinRM
@@ -267,9 +267,9 @@ function main($account) {
         if ($LASTEXITCODE -ne 0) { throw }
     }
     catch {
-        Write-Error "ERROR: WinRMの有効化でエラー発生しました[ $($_) ]"
+        Write-Error "ERROR: An error occured activating WinRM [ $($_) ]"
     }
-    Write-Output "WinRMサービスを有効化しました"
+    Write-Output "Activated WinRM service"
 
     # Set RootSDDL Security
     try {
@@ -279,7 +279,7 @@ function main($account) {
 
         # Add the new SID
         $accessType = "Allow"
-        $accessMask = -1610612736 # GXGR権限(読み取り,実行)
+        $accessMask = -1610612736 # GXGR Permission (Read, Execute)
         $inheritanceFlags = "none"
         $propagationFlags = "none"
         $SecurityDescriptor.DiscretionaryAcl.AddAccess($accessType, $sid, $accessMask, $inheritanceFlags, $propagationFlags)
@@ -290,9 +290,9 @@ function main($account) {
         Set-Item -Path $rootSddlPath -Value $newSDDL -Confirm:$false -Verbose:$false -Force
     }
     catch {
-        Write-Error "ERROR: WinRM RootSDDLセキュリティ設定の更新処理中にエラーが発生しました[ $($_) ]"
+        Write-Error "ERROR: An error occured updating WinRM RootSDDL security setting [ $($_) ]"
     }
-    Write-Output "WinRM RootSDDLセキュリティ設定を更新しました"
+    Write-Output "Updated WinRM RootSDDL security setting"
 
     # Set WMI Security
     try {
@@ -307,14 +307,14 @@ function main($account) {
         }
     }
     catch {
-        Write-Error "ERROR: WMIセキュリティ設定の更新処理中にエラーが発生しました[ $($_) ]"
+        Write-Error "ERROR: An error occured updating WMI security setting [ $($_) ]"
     }
-    Write-Output "WMIセキュリティ設定を更新しました"
+    Write-Output "Updated WMI security setting"
 
     try{
         Set-ComponentService $sid
     }catch {
-         Write-Error "ERROR: DCOM構成「TrustedInstallerService」のアクセス権設定中にエラーが発生しました[ $($_) ]"
+         Write-Error "ERROR: An error occurred setting up permissions for the DCOM configuration `TrustedInstallerService` [ $($_) ]"
     }
 }
 
